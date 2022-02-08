@@ -76,6 +76,9 @@ def update_merchant(token, merchant_id, merchant_name):
 
     if response.status_code != 200:
         print("update_merchant: ", response.status_code)
+    
+    print(f"is_active field updated for merchant {merchant_name}")
+    return response.status_code
 
 def delete_merchant(token, merchant_name):
     merchant_id = get_merchants(token, merchant_name)
@@ -103,16 +106,17 @@ def send_products(token,merchant_id,dataframe):
     header = {'token': f'Bearer {token}'}
 
     for branch in branches:
+        #Get most expensive products for each branch
         expensive_df = dataframe[dataframe["BRANCH"] == branch].nlargest(100, "PRICE")
 
         print(f"Sending products to API, Branch: {branch}")
 
-        #itterate and POST the most expensive products
+        #itterate and POST the 100 most expensive products
         for i in range(0,100):
             data = {
                 "merchant_id": f"{merchant_id}",
                 "sku": str(expensive_df.iloc[i]['SKU']),
-                "barcodes": ["62773501448"],
+                "barcodes": [str(expensive_df.iloc[i]['EAN'])],
                 "brand": str(expensive_df.iloc[i]['BRAND_NAME']),
                 "name": str(expensive_df.iloc[i]['ITEM_NAME']),
                 "description": str(expensive_df.iloc[i]['ITEM_DESCRIPTION']),
@@ -156,12 +160,12 @@ def process_csv_files():
     product_df['CATEGORY'] = product_df['CATEGORY'].str.lower()
     
     #Check if item descriptions contains Buy unit and package information
-    units = ('UN','GR','PZA','KG','KGS','CJA','ML','LT','LB')
+    units = ('UN','GR','GRS','PZA','KG','KGS','CJA','ML','LT','LB')
     for unit in units:
         product_df.loc[product_df["ITEM_DESCRIPTION"].str.contains(unit), 'BUY_UNIT'] = unit
 
     #Extract and create package column
-    product_df["PACKAGE"] = product_df['ITEM_DESCRIPTION'].str.extract(r'(\d*\s?[UN|GR|PZA|KG|KGS|CJA|ML|LT|LB]+\.?$)')
+    product_df["PACKAGE"] = product_df['ITEM_DESCRIPTION'].str.extract(r'(\d*\s?[UN|GR|GRS|PZA|KG|KGS|CJA|ML|LT|LB]+\.?$)')
     
     #Replacing NaN values
     product_df['BUY_UNIT'] = product_df['BUY_UNIT'].fillna('OTHER')
@@ -183,16 +187,17 @@ def run_etl(merchant_name):
     print("Processing CSV files")
     data = process_csv_files()
 
-    print("Getting API credentials")
+    print("\nGetting API credentials")
     token = get_token()
-    print("Getting Merchant ID")
+    print("\nGetting Merchant ID")
     merchant_id = get_merchants(token, merchant_name)
-    print("Updating is_active field")
+    print("\nUpdating is_active field")
     update_merchant(token, merchant_id, merchant_name)
-    print("Deleting Merchant")
+    print("\nDeleting Merchant")
     delete_merchant(token, "Beauty")
-    print("Sending Products")
+    print("\nSending Products")
     send_products(token, merchant_id, data)
+    print("\nProcess executed successfully.")
 
 if __name__ == "__main__":
     run_etl("Richard's")

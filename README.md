@@ -1,4 +1,4 @@
-# Cornershop's Skill Test
+# ETL and API project
 ## Requirements
 - Python 3.9
 - Pip
